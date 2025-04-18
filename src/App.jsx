@@ -5,6 +5,8 @@ import Services from './services';
 import RegisterPhysio from './RegisterPhysio';
 import Signup from "./signup";
 import Login from "./login";
+import PhysioSearchPage from './PhysioSearchPage';
+import PhysioDetailPage from './PhysioDetailPage';
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
 
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/" element={<PhysioSearchPage />} />
+        <Route path="/physio/:id" element={<PhysioDetailPage />} />
 
       </Routes>
     </Router>
