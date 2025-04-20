@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './firebase';
-import AuthModal from './AuthModal';
+import {AuthModal} from './AuthModal';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { useNavigate } from 'react-router-dom';

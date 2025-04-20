@@ -7,6 +7,8 @@ import Signup from "./signup";
 import Login from "./login";
 import PhysioSearchPage from './PhysioSearchPage';
 import PhysioDetailPage from './PhysioDetailPage';
+import FindPhysioPage from './FindPhysioPage'; // Added missing import
+import ContactPage from './ContactPage';
 
 function App() {
   return (
@@ -21,9 +23,10 @@ function App() {
 
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<PhysioSearchPage />} />
+        <Route path="/PhysioSearchPage" element={<PhysioSearchPage />} />
         <Route path="/physio/:id" element={<PhysioDetailPage />} />
-
+        <Route path="/FindPhysioPage" element={<FindPhysioPage />} /> 
+        <Route path="/ContactPage" element={<ContactPage />} />
       </Routes>
     </Router>
   );
