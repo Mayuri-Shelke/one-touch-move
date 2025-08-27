@@ -1,7 +1,37 @@
 import { Link } from "react-router-dom";
-import PhysioSlider from "./PhysioSlider"; // 
+import { useState, useEffect } from "react";
+import { auth, db } from "./firebase"; // ✅ make sure correct firebase path
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import PhysioSlider from "./PhysioSlider";
+
 export default function Homepage() {
-  
+  const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const docRef = doc(db, "users", currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setRole(docSnap.data().role);
+        }
+      } else {
+        setRole(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    setUser(null);
+    setRole(null);
+  };
+
   return (
     <div className="bg-gray-100 min-h-screen">
       {/* Navbar */}
@@ -15,19 +45,46 @@ export default function Homepage() {
             />
             <span className="text-2xl font-bold text-black-600">One Touch Move</span>
           </Link>
-          <ul className="flex space-x-6">
+
+          <ul className="flex space-x-6 items-center">
             <li><Link to="/" className="text-gray-700 hover:text-blue-600">Home</Link></li>
             <li><Link to="/services" className="text-gray-700 hover:text-blue-600">Services</Link></li>
             <li><Link to="/about" className="text-gray-700 hover:text-blue-600">About</Link></li>
-            <li>
-            <Link to="/register-physio"className="text-gray-700 hover:text-blue-600">Register Physio</Link>
-            </li>
-            <li><Link to="/login" className="text-gray-700 hover:text-blue-600">Login</Link></li>
-            <li>
-              <Link to="/signup" className="text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700">
-                Sign Up
-              </Link>
-            </li>
+
+            {/* Role-based Dashboard Links */}
+            {user && role === "user" && (
+              <li><Link to="/user-dashboard" className="text-gray-700 hover:text-blue-600">User Dashboard</Link></li>
+            )}
+            {user && role === "doctor" && (
+              <li><Link to="/doctor-dashboard" className="text-gray-700 hover:text-blue-600">Doctor Dashboard</Link></li>
+            )}
+            {user && role === "admin" && (
+              <>
+                <li><Link to="/admin" className="text-gray-700 hover:text-blue-600">Admin Dashboard</Link></li>
+                <li><Link to="/register-physio" className="text-gray-700 hover:text-blue-600">Register Physio</Link></li>
+              </>
+            )}
+
+            {/* Authentication Links */}
+            {!user ? (
+              <>
+                <li><Link to="/login" className="text-gray-700 hover:text-blue-600">Login</Link></li>
+                <li>
+                  <Link to="/signup" className="text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700">
+                    Sign Up
+                  </Link>
+                </li>
+              </>
+            ) : (
+              <li>
+                <button
+                  onClick={handleLogout}
+                  className="text-white bg-red-500 px-4 py-2 rounded-lg hover:bg-red-600"
+                >
+                  Logout
+                </button>
+              </li>
+            )}
           </ul>
         </div>
       </nav>
@@ -36,6 +93,7 @@ export default function Homepage() {
       <section className="container mx-auto px-6 py-12 flex flex-col md:flex-row items-center">
         {/* Left: Text Content */}
         <div className="md:w-1/2 text-center md:text-left">
+        
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800">
             Professional Physiotherapy at Your Convenience
           </h1>

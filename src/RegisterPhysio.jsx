@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+const IMGBB_API_KEY = 'd5389bff380b6ea40b8bc9736ff60b0a'; // Paste your ImgBB API key here
 
 export default function RegisterPhysio() {
   const [formData, setFormData] = useState({
@@ -10,43 +12,58 @@ export default function RegisterPhysio() {
     experience: '',
     contact: ''
   });
-
+  const [services, setServices] = useState([]);
+  const [profilePic, setProfilePic] = useState(null);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authData, setAuthData] = useState({ email: '', password: '' });
+  const auth = getAuth();
 
-  // Validation rules
+ 
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setAuthData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleServiceChange = (e) => {
+    const { value, checked } = e.target;
+    if (checked) {
+      setServices(prev => [...prev, value]);
+    } else {
+      setServices(prev => prev.filter(service => service !== value));
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
-    // Name validation (2-50 characters)
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
     } else if (formData.name.trim().length < 2) {
       newErrors.name = 'Name must be at least 2 characters';
     }
 
-    // Specialization validation
     if (!formData.specialization.trim()) {
       newErrors.specialization = 'Specialization is required';
     }
 
-    // Location validation
     if (!formData.location.trim()) {
       newErrors.location = 'Location is required';
     }
 
-    // Experience validation (1-60 years)
     if (!formData.experience) {
       newErrors.experience = 'Experience is required';
     } else if (isNaN(formData.experience)) {
       newErrors.experience = 'Must be a number';
-    } else if (formData.experience < 0) {
-      newErrors.experience = 'Cannot be negative';
-    } else if (formData.experience > 60) {
-      newErrors.experience = 'Maximum 60 years';
+    } else if (formData.experience < 0 || formData.experience > 60) {
+      newErrors.experience = 'Experience must be between 0-60';
     }
 
-    // Contact validation (10-15 digits)
     const phoneRegex = /^[0-9]{10,15}$/;
     if (!formData.contact.trim()) {
       newErrors.contact = 'Contact number is required';
@@ -54,29 +71,60 @@ export default function RegisterPhysio() {
       newErrors.contact = 'Invalid phone number (10-15 digits)';
     }
 
+    if (!profilePic) {
+      newErrors.profilePic = 'Profile picture is required';
+    }
+
+    if (services.length === 0) {
+      newErrors.services = 'Please select at least one service';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const uploadImageToImgBB = async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (data.success) {
+      return data.data.url;
+    } else {
+      throw new Error('Image upload failed');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return; // Stop submission if validation fails
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
     try {
+      const imageUrl = await uploadImageToImgBB(profilePic);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        authData.email,
+        authData.password
+      );
+      const uid = userCredential.user.uid;
+
       await addDoc(collection(db, 'physiotherapists'), {
-        name: formData.name.trim(),
-        specialization: formData.specialization.trim(),
-        location: formData.location.trim(),
+        uid,
+        ...formData,
         experience: Number(formData.experience),
         contact: formData.contact.trim(),
+        services,
+        profilePic: imageUrl,
         createdAt: new Date()
       });
+
       alert('Registration successful!');
-      // Reset form
       setFormData({
         name: '',
         specialization: '',
@@ -84,6 +132,8 @@ export default function RegisterPhysio() {
         experience: '',
         contact: ''
       });
+      setServices([]);
+      setProfilePic(null);
     } catch (error) {
       alert('Submission error: ' + error.message);
     } finally {
@@ -91,91 +141,86 @@ export default function RegisterPhysio() {
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
   return (
-    <div className="max-w-md mx-auto mt-32 p-6 bg-white rounded-lg shadow-md">
+    <div className="max-w-md mx-auto mt-20 p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-6 text-center">Physiotherapist Registration</h2>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        {/* Name Field */}
+
+        {/* Input Fields */}
+        {['name', 'specialization', 'location', 'experience', 'contact'].map(field => (
+          <div key={field}>
+            <input
+              type={field === 'experience' ? 'number' : field === 'contact' ? 'tel' : 'text'}
+              name={field}
+              value={formData[field]}
+              onChange={handleChange}
+              placeholder={field[0].toUpperCase() + field.slice(1)}
+              className={`w-full p-2 border rounded ${errors[field] ? 'border-red-500' : 'border-gray-300'}`}
+              required
+            />
+            {errors[field] && <p className="text-red-500 text-sm mt-1">{errors[field]}</p>}
+          </div>
+        ))}
+        {/* Email */}
+<div>
+  <input
+    type="email"
+    name="email"
+    value={authData.email}
+    onChange={handleChange}
+    placeholder="Email"
+    className={`w-full p-2 border rounded ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+    required
+  />
+  {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+</div>
+          {/* Password */}
+<div>
+  <input
+    type="password"
+    name="password"
+    value={authData.password}
+    onChange={handleChange}
+    placeholder="Password"
+    className={`w-full p-2 border rounded ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
+    required
+  />
+  {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+</div>
+
+        {/* Profile Picture */}
         <div>
+          <label className="block text-sm mb-1">Profile Picture</label>
           <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="Full Name"
-            className={`w-full p-2 border rounded ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
-            required
+            type="file"
+            accept="image/*"
+            onChange={(e) => setProfilePic(e.target.files[0])}
+            className="w-full"
           />
-          {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+          {errors.profilePic && <p className="text-red-500 text-sm mt-1">{errors.profilePic}</p>}
         </div>
 
-        {/* Specialization Field */}
+        {/* Services */}
         <div>
-          <input
-            type="text"
-            name="specialization"
-            value={formData.specialization}
-            onChange={handleChange}
-            placeholder="Specialization"
-            className={`w-full p-2 border rounded ${errors.specialization ? 'border-red-500' : 'border-gray-300'}`}
-            required
-          />
-          {errors.specialization && <p className="text-red-500 text-sm mt-1">{errors.specialization}</p>}
+          <label className="block text-sm mb-1">Services Offered</label>
+          {['Home Visit', 'Clinic Visit', 'Digital Session'].map(service => (
+            <div key={service}>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  value={service}
+                  checked={services.includes(service)}
+                  onChange={handleServiceChange}
+                  className="mr-2"
+                />
+                {service}
+              </label>
+            </div>
+          ))}
+          {errors.services && <p className="text-red-500 text-sm mt-1">{errors.services}</p>}
         </div>
 
-        {/* Location Field */}
-        <div>
-          <input
-            type="text"
-            name="location"
-            value={formData.location}
-            onChange={handleChange}
-            placeholder="City"
-            className={`w-full p-2 border rounded ${errors.location ? 'border-red-500' : 'border-gray-300'}`}
-            required
-          />
-          {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location}</p>}
-        </div>
-
-        {/* Experience Field */}
-        <div>
-          <input
-            type="number"
-            name="experience"
-            value={formData.experience}
-            onChange={handleChange}
-            placeholder="Years of Experience"
-            min="0"
-            max="60"
-            className={`w-full p-2 border rounded ${errors.experience ? 'border-red-500' : 'border-gray-300'}`}
-            required
-          />
-          {errors.experience && <p className="text-red-500 text-sm mt-1">{errors.experience}</p>}
-        </div>
-
-        {/* Contact Field */}
-        <div>
-          <input
-            type="tel"
-            name="contact"
-            value={formData.contact}
-            onChange={handleChange}
-            placeholder="Phone Number"
-            className={`w-full p-2 border rounded ${errors.contact ? 'border-red-500' : 'border-gray-300'}`}
-            required
-          />
-          {errors.contact && <p className="text-red-500 text-sm mt-1">{errors.contact}</p>}
-        </div>
-
+        {/* Submit Button */}
         <button
           type="submit"
           disabled={isSubmitting}

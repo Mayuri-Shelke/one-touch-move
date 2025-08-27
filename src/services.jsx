@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-
+import GoHomeButton from "./GoHomeButton";
 export default function Services() {
   const services = [
     {
@@ -39,8 +39,11 @@ export default function Services() {
   ];
 
   return (
+    
     <section className="container mx-auto px-6 py-12">
-      <div className="text-center mb-12">
+       <GoHomeButton />
+      <div className="text-center mb-12"> 
+        
         <h2 className="text-3xl font-bold text-gray-800">Our Services</h2>
         <p className="text-lg text-gray-600 mt-3 max-w-2xl mx-auto">
           Choose the best physiotherapy service tailored to your needs and schedule
